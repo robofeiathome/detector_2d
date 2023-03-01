@@ -11,7 +11,6 @@ from pyexpat import model
 from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs import point_cloud2 as pc2
 from sensor_msgs.msg import Image, PointCloud2
-#from regex import E, F
 import rospy
 from sensor_msgs.msg import Image
 import cv2
@@ -21,6 +20,8 @@ import numpy as np
 import torch
 from ultralytics import YOLO
 from ultralytics.yolo.v8.detect.predict import DetectionPredictor
+
+import processing as pr
 #from PIL import Image
 
 class Detector:
@@ -49,7 +50,7 @@ class Detector:
         self._current_pc = None
 
         # publisher for frames with detected objects
-        self._imagepub = rospy.Publisher('~labeled_persons', Image, queue_size=10)
+        self._imagepub = rospy.Publisher('~objects_label', Image, queue_size=10)
 
         self._tfpub = tf.TransformBroadcaster()
         rospy.loginfo('Ready to detect!')
@@ -80,14 +81,14 @@ class Detector:
                     yolo = YOLO("yolov8n.pt")
                     results = yolo.predict(source=small_frame, conf=0.8)
                     boxes = results[0].boxes
-                    #plot_bboxes(small_frame, boxes.boxes, score=False, conf=0.5)
+                    small_frame = pr.plot_bboxes(small_frame, boxes.boxes, conf=0.5)
 
                     #marked_image = np.squeeze(boxes)
                     for r in results:
                         for i in range(len(boxes)):
                             box = boxes[i]
                             dim = box.xyxy[0].to(torch.int32)
-                            cv2.rectangle(small_frame, (dim[0].item(), dim[1].item()), (dim[2].item(), dim[3].item()), (0,255,0), 2)
+                            #cv2.rectangle(small_frame, (dim[0].item(), dim[1].item()), (dim[2].item(), dim[3].item()), (0,255,0), 2)
                             # publish the image with the bounding boxes
                             self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
                             for c in r.boxes.cls:
@@ -157,7 +158,7 @@ class Detector:
 
 
 if __name__ == '__main__':
-    rospy.init_node('people_launch', log_level=rospy.INFO)
+    rospy.init_node('detector_2d', log_level=rospy.INFO)
 
     try:
         Detector().run()

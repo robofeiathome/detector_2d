@@ -17,9 +17,8 @@ import processing as pr
 
 class Detector:
 
-    def _init_(self):
+    def __init__(self):
         image_topic = '~/zed2/zed_node/left_raw/image_raw_color'
-        point_cloud_topic = '/zed2/zed_node/point_cloud/cloud_registered'
 
         self._global_frame = 'camera'
         self._frame = 'camera_depth_frame'
@@ -30,12 +29,6 @@ class Detector:
         # image and point cloud subscribers
         # and variables that will hold their values
         self._image_sub = rospy.Subscriber(image_topic, Image, self.image_callback)
-
-        if point_cloud_topic is not None:
-            self._pc_sub = rospy.Subscriber(point_cloud_topic, PointCloud2, self.pc_callback)
-        else:
-            rospy.loginfo(
-                'No point cloud information available. Objects will not be placed in the scene.')
 
         self._current_image = None
         self._current_pc = None
@@ -74,7 +67,7 @@ class Detector:
                 except CvBridgeError as e:
                     print(e)
 
-if _name_ == '_main_':
+if __name__ == '__main__':
     rospy.init_node('detector_2d', log_level=rospy.INFO)
 
     try:

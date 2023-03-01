@@ -71,91 +71,23 @@ class Detector:
             # only run if there's an image present
             if self._current_image is not None:
                 try:
-                    # if the user passes a fixed frame, we'll ask for transformation
-                    # vectors from the camera link to the fixed frame
-                    # if self._global_frame is not None:
-                    #     (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame,
-                    #                                                    '/' + self._frame, rospy.Time(0))
+                    #Busca imagem
                     small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
-                    # small_frame = self._bridge.imgmsg_to_cv2(, 'rgb8')
+                    
+                    #Carrega o modelo
                     yolo = YOLO("yolov8n.pt")
                     results = yolo.predict(source=small_frame, conf=0.8)
                     boxes = results[0].boxes
+                    
+                    #Coloca as bboxes
                     small_frame = pr.plot_bboxes(small_frame, boxes.boxes, conf=0.5)
+                    #small_frame = results[0].plot() <-- outra opção de colocar bbox
 
-                    #marked_image = np.squeeze(boxes)
-                    for r in results:
-                        for i in range(len(boxes)):
-                            box = boxes[i]
-                            dim = box.xyxy[0].to(torch.int32)
-                            #cv2.rectangle(small_frame, (dim[0].item(), dim[1].item()), (dim[2].item(), dim[3].item()), (0,255,0), 2)
-                            # publish the image with the bounding boxes
-                            self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
-                            for c in r.boxes.cls:
-                                publish_tf = False
-                                if self._current_pc is None:
-                                    rospy.loginfo(
-                                        'No point cloud information available to track current object in scene')
-
-                            #     # if there is point cloud data, we'll try to place a tf
-                            #     # in the object's location
-                            #     else:
-                            #         y_center = round((dim[1].item() + dim[3].item()) / 2)
-                            #         x_center = round((dim[0].item() + dim[2].item()) / 2)
-                            #         # this function gives us a generator of points.
-                            #         # we ask for a single point in the center of our object.
-                            #         try:
-                            #             pc_list = list(
-                            #                 pc2.read_points(self._current_pc,
-                            #                                 skip_nans=True,
-                            #                                 field_names=('x', 'y', 'z'),
-                            #                                 uvs=[(x_center, y_center)]))
-                            #         except:
-                            #             continue
-
-                            #         if len(pc_list) > 0:
-                            #             publish_tf = True
-                            #             # this is the location of our object in space
-                            #             tf_id = str(yolo.names[c])
-
-                            #             # if the user passes a tf prefix, we append it to the object tf name here
-                            #             if self._tf_prefix is not None:
-                            #                 tf_id = self._tf_prefix + '/' + tf_id
-
-                            #             tf_id = tf_id
-
-                            #             point_x, point_y, point_z = pc_list[0]
-
-                            #     # we'll publish a TF related to this object only once
-                            #     if publish_tf:
-                            #         # kinect here is mapped as camera_link
-                            #         # object tf (x, y, z) must be
-                            #         # passed as (z,-x,-y)
-                            #         object_tf = [point_z, -point_x, -point_y]
-                            #         frame = self._frame
-
-                            #         # translate the tf in regard to the fixed frame
-                            #         if self._global_frame is not None:
-                            #             object_tf = np.array(trans) + object_tf
-                            #             frame = self._global_frame
-
-                            #         # this fixes #7 on GitHub, when applying the
-                            #         # translation to the tf creates a vector that
-                            #         # RViz just can'y handle
-                            #         if object_tf is not None:
-                            #             self._tfpub.sendTransform((object_tf),
-                            #                                     tf.transformations.quaternion_from_euler(
-                            #                                         0, 0, 0),
-                            #                                     rospy.Time.now(),
-                            #                                     tf_id,
-                            #                                     frame)
-                            # cv2.destroyAllWindows()
+                    #publica o topico
+                    self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
 
                 except CvBridgeError as e:
                     print(e)
-                except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException) as e:
-                    print(e)
-
 
 if __name__ == '__main__':
     rospy.init_node('detector_2d', log_level=rospy.INFO)

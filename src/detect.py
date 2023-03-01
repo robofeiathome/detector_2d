@@ -12,6 +12,7 @@ from hera_face.srv import face_list
 import torch
 from ultralytics import YOLO
 from ultralytics.yolo.v8.detect.predict import DetectionPredictor
+import torch
 
 import processing as pr
 
@@ -19,6 +20,8 @@ class Detector:
 
     def __init__(self):
         image_topic = '~/zed2/zed_node/left_raw/image_raw_color'
+
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self._global_frame = 'camera'
         self._frame = 'camera_depth_frame'
@@ -55,7 +58,7 @@ class Detector:
                     
                     #Load model
                     yolo = YOLO("yolov8n.pt")
-                    results = yolo.predict(source=small_frame, conf=0.8)
+                    results = yolo.predict(source=small_frame, conf=0.8, device=self.device)
                     boxes = results[0].boxes
                     
                     #Plot bbox 

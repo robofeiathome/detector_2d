@@ -7,11 +7,9 @@ import tf
 
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
-from sensor_msgs.msg import Image, PointCloud2
-from hera_face.srv import face_list
-import torch
+from sensor_msgs.msg import Image
 from ultralytics import YOLO
-from ultralytics.yolo.v8.detect.predict import DetectionPredictor
+import torch
 
 import processing as pr
 
@@ -19,6 +17,8 @@ class Detector:
 
     def __init__(self):
         image_topic = '~/zed2/zed_node/left_raw/image_raw_color'
+
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self._global_frame = 'camera'
         self._frame = 'camera_depth_frame'
@@ -52,10 +52,10 @@ class Detector:
                 try:
                     #Search image
                     small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
-                    
+                    print(self.device)
                     #Load model
                     yolo = YOLO("yolov8n.pt")
-                    results = yolo.predict(source=small_frame, conf=0.8)
+                    results = yolo.predict(source=small_frame, conf=0.8, device=0)
                     boxes = results[0].boxes
                     
                     #Plot bbox 

@@ -3,7 +3,6 @@
 
 import rospy
 import numpy as np
-import tf
 
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
@@ -11,7 +10,7 @@ from sensor_msgs.msg import Image
 from ultralytics import YOLO
 import torch
 
-#from detector_2d.msg import CoordBoxes, DicBoxes
+from detector_2d.msg import DicBoxes
 import processing as pr
 
 class Detector:
@@ -35,6 +34,8 @@ class Detector:
         # publisher for frames with detected objects
         self._imagepub = rospy.Publisher('~objects_label', Image, queue_size=10)
         self._boxespub = rospy.Publisher('~boxes_coordinates', DicBoxes, queue_size=10)
+        self._publishers = {
+            None: (None, rospy.Publisher('~detected', DicBoxes, queue_size=10))}
         
         rospy.loginfo('Ready to detect!')
 
@@ -70,6 +71,13 @@ class Detector:
                             class_boxes[yolo.names[int(c)]] = boxes.boxes[i]
                             print(class_boxes)
                     
+                    d_boxes = DicBoxes()
+
+                    d_boxes.boxes = [class_boxes]
+                    
+                    print(d_boxes)
+
+                    self.publishers.publish(d_boxes) 
 
 
                 except CvBridgeError as e:
@@ -77,7 +85,6 @@ class Detector:
 
 if __name__ == '__main__':
     rospy.init_node('detector_2d', log_level=rospy.INFO)
-
     try:
         Detector().run()
     except KeyboardInterrupt:

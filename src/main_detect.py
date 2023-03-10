@@ -10,7 +10,7 @@ from sensor_msgs.msg import Image
 from ultralytics import YOLO
 import torch
 
-from detector_2d.msg import DicBoxes
+from detector_2d.msg import DicBoxes, CoordBoxes
 import processing as pr
 
 class Detector:
@@ -34,9 +34,8 @@ class Detector:
         # publisher for frames with detected objects
         self._imagepub = rospy.Publisher('~objects_label', Image, queue_size=10)
         self._boxespub = rospy.Publisher('~boxes_coordinates', DicBoxes, queue_size=10)
-        self._publishers = {
-            None: (None, rospy.Publisher('~detected', DicBoxes, queue_size=10))}
         
+    
         rospy.loginfo('Ready to detect!')
 
     def image_callback(self, image):
@@ -56,29 +55,29 @@ class Detector:
                     #Load model
                     yolo = YOLO("yolov8n.pt")
                     results = yolo.predict(source=small_frame, conf=0.8, device=0)
-                    boxes = results[0].boxes
-                    
+                        
+                    #classes
+                    class_boxes = DicBoxes()
+                    for r in results:
+                        boxes = r.boxes
+                        for i, c in enumerate(r.boxes.cls):
+                            arr = boxes[i].xywh[0]
+                            print("I:", i)
+                            aux = CoordBoxes()
+                            aux.class_.data = yolo.names[int(c)]
+                            aux.x.data = int(arr[0].item())
+                            aux.y.data = int(arr[1].item())
+                            aux.w.data = int(arr[2].item())
+                            aux.h.data = int(arr[3].item())
+                            class_boxes.boxes.append(aux)
+                            print(class_boxes.boxes)
+                            
                     #Plot bbox 
-                    small_frame = pr.plot_bboxes(small_frame, boxes.boxes, conf=0.5)
+                    small_frame = pr.plot_bboxes(small_frame, results[0].boxes.boxes, conf=0.5)
                     
                     #Publisher
                     self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
-
-                    #classes
-                    class_boxes = {}
-                    for r in results:
-                        for i, c in enumerate(r.boxes.cls):
-                            class_boxes[yolo.names[int(c)]] = boxes.boxes[i]
-                            print(class_boxes)
-                    
-                    d_boxes = DicBoxes()
-
-                    d_boxes.boxes = [class_boxes]
-                    
-                    print(d_boxes)
-
-                    self.publishers.publish(d_boxes) 
-
+                    self._boxespub.publish(class_boxes)
 
                 except CvBridgeError as e:
                     print(e)

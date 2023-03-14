@@ -3,7 +3,6 @@
 
 import rospy
 import numpy as np
-import tf
 
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
@@ -11,6 +10,7 @@ from sensor_msgs.msg import Image
 from ultralytics import YOLO
 import torch
 
+from detector_2d.msg import DicBoxes, CoordBoxes
 import processing as pr
 
 class Detector:
@@ -21,8 +21,6 @@ class Detector:
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         self._global_frame = 'camera'
-        self._frame = 'camera_depth_frame'
-        self._tf_listener = tf.TransformListener()
         # create detector
         self._bridge = CvBridge()
 
@@ -35,8 +33,9 @@ class Detector:
 
         # publisher for frames with detected objects
         self._imagepub = rospy.Publisher('~objects_label', Image, queue_size=10)
+        self._boxespub = rospy.Publisher('~boxes_coordinates', DicBoxes, queue_size=10)
 
-        self._tfpub = tf.TransformBroadcaster()
+
         rospy.loginfo('Ready to detect!')
 
     def image_callback(self, image):
@@ -52,24 +51,39 @@ class Detector:
                 try:
                     #Search image
                     small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
-                    print(self.device)
+
                     #Load model
                     yolo = YOLO("yolov8n.pt")
                     results = yolo.predict(source=small_frame, conf=0.8, device=0)
-                    boxes = results[0].boxes
-                    
+
+                    #classes
+                    class_boxes = DicBoxes()
+                    for r in results:
+                        boxes = r.boxes
+                        for i, c in enumerate(r.boxes.cls):
+                            arr = boxes[i].xywh[0]
+                            print("I:", i)
+                            aux = CoordBoxes()
+                            aux.class_.data = yolo.names[int(c)]
+                            aux.x.data = int(arr[0].item())
+                            aux.y.data = int(arr[1].item())
+                            aux.w.data = int(arr[2].item())
+                            aux.h.data = int(arr[3].item())
+                            class_boxes.boxes.append(aux)
+                            print(class_boxes.boxes)
+
                     #Plot bbox 
-                    small_frame = pr.plot_bboxes(small_frame, boxes.boxes, conf=0.5)
+                    small_frame = pr.plot_bboxes(small_frame, results[0].boxes.boxes, conf=0.5)
                     
                     #Publisher
                     self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
+                    self._boxespub.publish(class_boxes)
 
                 except CvBridgeError as e:
                     print(e)
 
 if __name__ == '__main__':
     rospy.init_node('detector_2d', log_level=rospy.INFO)
-
     try:
         Detector().run()
     except KeyboardInterrupt:

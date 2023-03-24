@@ -21,15 +21,14 @@ import traceback
 class Detector:
 
     def __init__(self):
-        self._global_frame = 'zed2_camera_center'
+        self._global_frame = 'zed2_left_camera_frame'
 
-        min_points = rospy.get_param('~sift_min_pts', 10)
         image_topic = rospy.get_param('~image_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
 
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
-        self.yolo = YOLO("yolov8n.pt")
+        self.yolo = YOLO("/home/robofei/Workspace/catkin_ws/src/vision_system/detector_2d/src/best.pt")
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None
@@ -68,45 +67,31 @@ class Detector:
         # Store value on a private attribute
         self._current_pc = pc
 
-    def detectAndGenerateTF(self):
-        print("Function running")
-        if not rospy.is_shutdown():
-            print("Rospy running")
-            if self._current_image is not None:
-                print("Detection started")
-                small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
-                if self._global_frame is not None:
-                    (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame, '/zed2_camera_center', rospy.Time(0))
-                yolo = YOLO("yolov8n.pt")
-                results = yolo.predict(source=small_frame, conf=0.7, device=0)
-                class_boxes = DicBoxes()
-                boxes = results[0].boxes
-                print("Results: ")
-                print(results)
-                print("Boxes: ")
-                print(boxes)
-
     def run(self):
         # run while ROS runs
+        frame_rate = 5
+        prev = 0
         while not rospy.is_shutdown():
-            # only run if there's an image present
-            if self._current_image is not None:
-                try:
-                    #Search image
-                    small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
+            time_elapsed = time.time() - prev
+            if time_elapsed > 1./frame_rate:
+                prev = time.time()
+                # only run if there's an image present
+                if self._current_image is not None:
+                    try:
+                        #Search image
+                        small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
 
-                    if self._global_frame is not None:
-                        (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame,
-                                                                 '/zed2_camera_center',
-                                                                 rospy.Time(0))
-                    #Load model
-                    results = self.yolo.predict(source=small_frame, conf=0.8, device=0)
-                    
-                    #Boxes to msg
-                    class_boxes = DicBoxes()
-                    boxes = results[0].boxes
-                    for r in results:
-                        boxes = r.boxes
+                        if self._global_frame is not None:
+                            (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame, '/zed2_camera_center', rospy.Time(0))
+                        #Load model
+                        results = self.yolo.predict(source=small_frame, conf=0.5, device=0)
+                        
+                        #Boxes to msg
+                        boxes = results[0].boxes
+                        print("boxes: ", end="")
+                        print(boxes)
+                        print("box classes: ", end="")
+                        print(boxes.cls)
                         for i, c in enumerate(boxes.cls):
                             arr = boxes[i].xywh[0]
                             aux = CoordBoxes()
@@ -122,37 +107,29 @@ class Detector:
                             if self._current_pc is None:
                                 rospy.loginfo('No point cloud')
                             else:
-                                y_center = round(arr[1].item() - ((arr[1].item() - arr[3].item()) / 2))
-                                x_center = round(arr[0].item() - ((arr[0].item() - arr[2].item()) / 2))
+                                # y_center = round(arr[1].item() - ((arr[1].item() - arr[3].item()) / 2))
+                                # x_center = round(arr[0].item() - ((arr[0].item() - arr[2].item()) / 2))
                                 # this function gives us a generator of points.
                                 # we ask for a single point in the center of our object.
-                                print(y_center, x_center)
+                                x_center = int(boxes[i].xywh[0][0])
+                                y_center = int(boxes[i].xywh[0][1])
 
-                                
                                 pc_list = list(
                                     pc2.read_points(self._current_pc,
                                                 skip_nans=True,
                                                 field_names=('x', 'y', 'z'),
                                                 uvs=[(x_center, y_center)]))
-                            
-
-                                print(pc_list)
 
                                 if len(pc_list) > 0:
                                     publish_tf = True
                                     # this is the location of our object in space
                                     tf_id = obj_class + '_' + str(c)
+                                    point_z, point_x, point_y = pc_list[0]
 
                                 # if the user passes a tf prefix, we append it to the object tf name here
                                 if self._tf_prefix is not None:
                                     tf_id = self._tf_prefix + '/' + str(self.yolo.names[int(c)]) + str(i)
-
-                                aux.id.data = tf_id
-                                class_boxes.boxes.append(aux)
-                                point_z, point_x, point_y = pc_list[0]
-                                print("Point x: " + str(point_x))
-                                print("Point y: " + str(point_y))
-                                print("Point z: " + str(point_z))
+                                    aux.id.data = tf_id
                             
                             if publish_tf:
                                 # object tf (x, y, z) must be
@@ -171,18 +148,18 @@ class Detector:
                                                                 rospy.Time.now(),
                                                                 tf_id,
                                                                 frame)
+                        
+                        print(self.yolo.names)
 
-                            
-                    #Plot bbox 
-                    small_frame = pr.plot_bboxes(small_frame, results[0].boxes.boxes, conf=0.5)
-                    
-                    #Publisher
-                    self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
-                    self._boxespub.publish(class_boxes)
-                    
+                        #Plot bbox 
+                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.boxes, self.yolo.names, conf=0.5)
+                        
+                        #Publisher
+                        self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
+                        
 
-                except Exception:
-                    traceback.print_exc()        
+                    except Exception:
+                        traceback.print_exc()        
 
 if __name__ == '__main__':
     rospy.init_node('detector_2d', log_level=rospy.INFO)

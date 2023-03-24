@@ -31,9 +31,9 @@ def plot_bboxes(image, boxes, labels=[], colors=[], score=True, conf=None):
     for box in boxes:
     #add score in label if score=True
         if score :
-            label = labels[int(box[-1])+1] + " " + str(round(100 * float(box[-2]),1)) + "%"
+            label = labels[int(box[-1])] + " " + str(round(100 * float(box[-2]),1)) + "%"
         else :
-            label = labels[int(box[-1])+1]
+            label = labels[int(box[-1])]
         #filter every box under conf threshold if conf threshold setted
         if conf :
             if box[-2] > conf:

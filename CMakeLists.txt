@@ -9,6 +9,8 @@ project(detector_2d)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  roscpp
+  std_msgs
   geometry_msgs
   message_generation
   cv_bridge
@@ -72,9 +74,10 @@ add_message_files(
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
   DEPENDENCIES
-  std_msgs  # Or other packages containing msgs
+  std_msgs
   geometry_msgs
 )
+
 
 ################################################
 ## Declare ROS dynamic reconfigure parameters ##
@@ -109,6 +112,12 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES detector_2d
 #  CATKIN_DEPENDS src
+
+  CATKIN_DEPENDS rospy
+  std_msgs
+  geometry_msgs
+  message_runtime
+
 #  DEPENDS system_lib
 )
 

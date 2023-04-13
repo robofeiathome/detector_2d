@@ -1,0 +1,5 @@
+# minimum number of points to consider an object as present in the scene
+sift_min_pts: 5
+
+# the frame or tf that all object tfs will be published in relation to, leave blank to publish wrt. camera_link
+global_frame: zed2_camera_center

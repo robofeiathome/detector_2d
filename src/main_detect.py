@@ -123,7 +123,7 @@ class Detector:
 
                             if publish_tf:
                                 # Object tf (x, y, z) must be passed as (z, -x, -y)
-                                object_tf = [point_z, point_x, -point_y]
+                                object_tf = [point_z, point_x, point_y]
                                 frame = 'zed2_camera_center'
 
                                 # Translate the tf in regard to the fixed frame

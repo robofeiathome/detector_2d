@@ -136,9 +136,10 @@ class Detector:
                             detected_object.detected_objects.append(aux)
 
                             if publish_tf:
-                                # object tf (x, y, z) must be
-                                # passed as (z,-x,-y)
-                                object_tf = [point_z, point_x, -point_y]
+
+                                # Object tf (x, y, z) must be passed as (z, -x, -y)
+                                object_tf = [point_z, point_x, point_y]
+
                                 frame = 'zed2_camera_center'
 
                                 # translate the tf in regard to the fixed frame

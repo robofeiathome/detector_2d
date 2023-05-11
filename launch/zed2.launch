@@ -3,7 +3,7 @@
     
     <node name="detector_2d_node" pkg="detector_2d" type="main_detect.py" output="screen">
         <rosparam command="load" file="$(find detector_2d)/config/main_cfg.yaml"/>
-        <param name="image_topic" value="zed_node/rgb_raw/image_raw_color" />
+        <param name="image_topic" value="/zed_node/left_raw/image_raw_color" />
         <param name="point_cloud_topic" value="/zed_node/point_cloud/cloud_registered" />
     </node>
 

@@ -69,7 +69,7 @@ class Detector:
 
     def run(self):
         # run while ROS runs
-        frame_rate = 5
+        frame_rate = 2
         prev = 0
         while not rospy.is_shutdown():
             time_elapsed = time.time() - prev
@@ -82,7 +82,7 @@ class Detector:
                         small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
 
                         if self._global_frame is not None:
-                            (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame, 'zed2i_base_link', rospy.Time(0))
+                            (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame, 'zed2i_camera_center', rospy.Time(0))
                         
                         detected_object = DicBoxes()
                         
@@ -130,12 +130,14 @@ class Detector:
                                     tf_id = self._tf_prefix + '/' + str(self.yolo.names[int(c)]) + str(i)
                                     aux.tf_id.data = tf_id
 
+                            # print(aux)
                             detected_object.detected_objects.append(aux)
                             
                             if publish_tf:
                                 # object tf (x, y, z) must be
                                 # passed as (z,-x,-y)
                                 object_tf = [point_z, point_x, point_y]
+                                # print(object_tf)
                                 frame = '/zed2i_camera_center'
 
                                 # translate the tf in regard to the fixed frame
@@ -143,15 +145,18 @@ class Detector:
                                     object_tf = np.array(trans) + object_tf
                                     frame = self._global_frame
 
-                                if object_tf is not None:
-                                    self._tfpub.sendTransform((object_tf),
-                                                                tf.transformations.quaternion_from_euler(0, 0, 0),
-                                                                rospy.Time.now(),
-                                                                tf_id,
-                                                                frame)
+                                if object_tf is not None and point_x != float("-inf") and point_y != float("-inf") and point_z != float("-inf"):
+                                    try:
+                                        self._tfpub.sendTransform((object_tf),
+                                                                    tf.transformations.quaternion_from_euler(0, 0, 0),
+                                                                    rospy.Time.now(),
+                                                                    tf_id,
+                                                                    frame)
+                                    except:
+                                        pass
 
                         #Plot bbox 
-                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.5)
+                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.boxes, self.yolo.names, conf=0.5)
                         
                         #Publisher
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))

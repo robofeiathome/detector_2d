@@ -21,14 +21,15 @@ import traceback
 class Detector:
 
     def __init__(self):
-        self._global_frame = 'zed2i_left_camera_center'
+        self._global_frame = 'zed2i_left_camera_frame'
 
         image_topic = rospy.get_param('~image_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
 
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
-        self.yolo = YOLO("/home/robofei/Workspace/catkin_ws/src/3rd_party/Vision_System/detector_2d/src/best.pt")
+        
+        self.yolo = YOLO("/home/robofei/Workspace/catkin_ws/src/3rd_party/vision_System/detector_2d/src/best.pt")
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None
@@ -69,7 +70,8 @@ class Detector:
 
     def run(self):
         # run while ROS runs
-        frame_rate = 2
+
+        frame_rate = 5
         prev = 0
         while not rospy.is_shutdown():
             time_elapsed = time.time() - prev
@@ -82,7 +84,7 @@ class Detector:
                         small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
 
                         if self._global_frame is not None:
-                            (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame, 'zed2i_camera_center', rospy.Time(0))
+                            (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame, 'zed2i_left_camera_frame', rospy.Time(0))
                         
                         detected_object = DicBoxes()
                         
@@ -136,9 +138,9 @@ class Detector:
                             if publish_tf:
                                 # object tf (x, y, z) must be
                                 # passed as (z,-x,-y)
-                                object_tf = [point_z, point_x, point_y]
+                                object_tf = [point_z, point_x + 0.0, point_y]
                                 # print(object_tf)
-                                frame = '/zed2i_camera_center'
+                                frame = '/zed2i_left_camera_frame'
 
                                 # translate the tf in regard to the fixed frame
                                 if self._global_frame is not None:

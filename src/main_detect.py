@@ -28,6 +28,7 @@ class Detector:
 
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
+        
         self.yolo = YOLO("/home/robofei/Workspace/catkin_ws/src/3rd_party/vision_System/detector_2d/src/best.pt")
 
         self._tf_listener = tf.TransformListener()
@@ -69,6 +70,7 @@ class Detector:
 
     def run(self):
         # run while ROS runs
+
         frame_rate = 5
         prev = 0
         while not rospy.is_shutdown():

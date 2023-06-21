@@ -28,7 +28,7 @@ class Detector:
 
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
-        self.yolo = YOLO("/home/robofei/Workspace/catkin_dev/src/3rd_party/Vision_System/detector_2d/src/best.pt")
+        self.yolo = YOLO("/home/robofei/Workspace/catkin_ws/src/3rd_party/vision_System/detector_2d/src/best.pt")
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None
@@ -69,7 +69,7 @@ class Detector:
 
     def run(self):
         # run while ROS runs
-        frame_rate = 3
+        frame_rate = 5
         prev = 0
         while not rospy.is_shutdown():
             time_elapsed = time.time() - prev
@@ -156,7 +156,7 @@ class Detector:
                                         pass
 
                         #Plot bbox 
-                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.5)
+                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.boxes, self.yolo.names, conf=0.5)
                         
                         #Publisher
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))

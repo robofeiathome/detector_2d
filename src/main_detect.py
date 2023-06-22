@@ -3,6 +3,7 @@
 
 import rospy
 import numpy as np
+import rospkg
 
 import tf
 import cv2
@@ -26,9 +27,12 @@ class Detector:
         image_topic = rospy.get_param('~image_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
 
+        rospack = rospkg.RosPack()
+        self.path_to_package = rospack.get_path('detector_2d')
+
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
-        self.yolo = YOLO("/home/robofei/Workspace/catkin_ws/src/3rd_party/vision_System/detector_2d/src/best.pt")
+        self.yolo = YOLO(self.path_to_package+"/src/best.pt")
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None

@@ -151,7 +151,7 @@ class Detector:
                                     object_tf = np.array(trans) + object_tf
                                     frame = self._global_frame
 
-                                if object_tf is not None and point_x != float("-inf") and point_y != float("-inf") and point_z != float("-inf"):
+                                if object_tf is not None and point_x != float("-inf") and point_x != float("inf") and point_y != float("-inf") and point_y != float("inf") and point_z != float("-inf") and point_z != float("inf"):
                                     try:
                                         self._tfpub.sendTransform((object_tf),
                                                                     tf.transformations.quaternion_from_euler(0, 0, 0),

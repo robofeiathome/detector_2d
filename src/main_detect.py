@@ -3,6 +3,7 @@
 
 import rospy
 import numpy as np
+import rospkg
 
 import tf
 import cv2
@@ -26,10 +27,13 @@ class Detector:
         image_topic = rospy.get_param('~image_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
 
+        rospack = rospkg.RosPack()
+        self.path_to_package = rospack.get_path('detector_2d')
+
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
-        
-        self.yolo = YOLO("/home/robofei/Workspace/catkin_ws/src/3rd_party/vision_System/detector_2d/src/best.pt")
+
+        self.yolo = YOLO(self.path_to_package+"/src/robocup23.pt")
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None
@@ -89,7 +93,7 @@ class Detector:
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.yolo.predict(source=small_frame, conf=0.7, device=0)
+                        results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
                         
                         #Boxes to msg
                         boxes = results[0].boxes
@@ -147,7 +151,7 @@ class Detector:
                                     object_tf = np.array(trans) + object_tf
                                     frame = self._global_frame
 
-                                if object_tf is not None and point_x != float("-inf") and point_y != float("-inf") and point_z != float("-inf"):
+                                if object_tf is not None and point_x != float("-inf") and point_x != float("inf") and point_y != float("-inf") and point_y != float("inf") and point_z != float("-inf") and point_z != float("inf"):
                                     try:
                                         self._tfpub.sendTransform((object_tf),
                                                                     tf.transformations.quaternion_from_euler(0, 0, 0),
@@ -158,7 +162,7 @@ class Detector:
                                         pass
 
                         #Plot bbox 
-                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.boxes, self.yolo.names, conf=0.5)
+                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
                         
                         #Publisher
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))

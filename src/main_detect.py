@@ -22,7 +22,7 @@ import traceback
 class Detector:
 
     def __init__(self):
-        self._global_frame = 'zed2i_left_camera_frame'
+        self._global_frame = 'camera_rgb_frame'
 
         image_topic = rospy.get_param('~image_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
@@ -33,7 +33,7 @@ class Detector:
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
 
-        self.yolo = YOLO(self.path_to_package+"/src/robocup23.pt")
+        self.yolo = YOLO(self.path_to_package+"/src/best.pt")
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None
@@ -88,12 +88,12 @@ class Detector:
                         small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
 
                         if self._global_frame is not None:
-                            (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame, 'zed2i_left_camera_frame', rospy.Time(0))
+                            (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame, 'camera_rgb_frame', rospy.Time(0))
                         
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
+                        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, verbose=False)
                         
                         #Boxes to msg
                         boxes = results[0].boxes
@@ -118,13 +118,15 @@ class Detector:
                                 # we ask for a single point in the center of our object.
                                 x_center = int(boxes[i].xywh[0][0])
                                 y_center = int(boxes[i].xywh[0][1])
+                                # print(x_center, y_center)
+
+                                # print(self._current_pc)
 
                                 pc_list = list(
                                     pc2.read_points(self._current_pc,
                                                 skip_nans=True,
                                                 field_names=('x', 'y', 'z'),
                                                 uvs=[(x_center, y_center)]))
-
                                 if len(pc_list) > 0:
                                     publish_tf = True
                                     # this is the location of our object in space
@@ -144,7 +146,7 @@ class Detector:
                                 # passed as (z,-x,-y)
                                 object_tf = [point_z, point_x + 0.0, point_y]
                                 # print(object_tf)
-                                frame = '/zed2i_left_camera_frame'
+                                frame = '/camera_rgb_frame'
 
                                 # translate the tf in regard to the fixed frame
                                 if self._global_frame is not None:

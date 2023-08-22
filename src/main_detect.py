@@ -144,7 +144,7 @@ class Detector:
                             if publish_tf:
                                 # object tf (x, y, z) must be
                                 # passed as (z,-x,-y)
-                                object_tf = [point_z, point_x + 0.0, point_y]
+                                object_tf = [point_y, -point_z + 0.0, -point_x]
                                 # print(object_tf)
                                 frame = '/camera_rgb_frame'
 

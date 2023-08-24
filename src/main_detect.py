@@ -86,14 +86,11 @@ class Detector:
                     try:
                         #Search image
                         small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
-
-                        if self._global_frame is not None:
-                            (trans, _) = self._tf_listener.lookupTransform('/' + self._global_frame, 'camera_rgb_frame', rospy.Time(0))
                         
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.yolo.predict(source=small_frame, conf=0.5, device=0, verbose=False)
+                        results = self.yolo.predict(source=small_frame, conf=0.8, device=0, verbose=False)
                         
                         #Boxes to msg
                         boxes = results[0].boxes
@@ -116,23 +113,45 @@ class Detector:
                                 # x_center = round(arr[0].item() - ((arr[0].item() - arr[2].item()) / 2))
                                 # this function gives us a generator of points.
                                 # we ask for a single point in the center of our object.
+                                
                                 x_center = int(boxes[i].xywh[0][0])
                                 y_center = int(boxes[i].xywh[0][1])
+                                width = int(boxes[i].xywh[0][2])
+                                height = int(boxes[i].xywh[0][3])
+                                
                                 # print(x_center, y_center)
 
                                 # print(self._current_pc)
+
+                                points=[(x_center, y_center + 25), (x_center - 10, y_center + 25), (x_center + 10, y_center + 25)]
 
                                 pc_list = list(
                                     pc2.read_points(self._current_pc,
                                                 skip_nans=True,
                                                 field_names=('x', 'y', 'z'),
-                                                uvs=[(x_center, y_center)]))
+                                                uvs=points))
+                                # pc_list_sum = np.sum(pc_list,axis=0)
+
+                            
+                                
                                 if len(pc_list) > 0:
+                                    first = pc_list[0]
+                                    for item in pc_list:
+                                        if item[2] < first[2]:
+                                            first = item
+
+                                    pc_list_sum = np.sum(pc_list, axis=0)
+
+                                    pc_list_x = pc_list_sum[0]/len(pc_list)
+                                    pc_list_y = pc_list_sum[1]/len(pc_list)
+                                    pc_list_z = first[2]
+                                    publish_point = [pc_list_x, pc_list_y, pc_list_z]
+
                                     publish_tf = True
                                     # this is the location of our object in space
                                     tf_id = obj_class + '_' + str(c)
-                                    point_z, point_x, point_y = pc_list[0]
-
+                                    # point_z, point_x, point_y = (pc_list_sum[0]/len(pc_list)), (pc_list_sum[1]/len(pc_list)), (pc_list_sum[2]/len(pc_list))
+                                    point_z, point_x, point_y = publish_point
                                 # if the user passes a tf prefix, we append it to the object tf name here
                                 if self._tf_prefix is not None:
                                     tf_id = self._tf_prefix + '/' + str(self.yolo.names[int(c)]) + str(i)
@@ -150,7 +169,6 @@ class Detector:
 
                                 # translate the tf in regard to the fixed frame
                                 if self._global_frame is not None:
-                                    object_tf = np.array(trans) + object_tf
                                     frame = self._global_frame
 
                                 if object_tf is not None and point_x != float("-inf") and point_x != float("inf") and point_y != float("-inf") and point_y != float("inf") and point_z != float("-inf") and point_z != float("inf"):
@@ -164,7 +182,7 @@ class Detector:
                                         pass
 
                         #Plot bbox 
-                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
+                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.8)
                         
                         #Publisher
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))

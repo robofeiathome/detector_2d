@@ -19,6 +19,12 @@ import processing as pr
 import time
 import traceback
 
+class Object:
+
+    def __init__(self):
+        self.xywh = None
+        self.obj_class = None
+
 class Detector:
 
     def __init__(self):
@@ -75,7 +81,7 @@ class Detector:
     def run(self):
         # run while ROS runs
 
-        frame_rate = 5
+        frame_rate = 10
         prev = 0
         while not rospy.is_shutdown():
             time_elapsed = time.time() - prev
@@ -90,19 +96,35 @@ class Detector:
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.yolo.predict(source=small_frame, conf=0.8, device=0, verbose=False)
+                        results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
                         
                         #Boxes to msg
                         boxes = results[0].boxes
-                        for i, c in enumerate(boxes.cls):
-                            arr = boxes[i].xywh[0]
+                        objects = []
+
+                        for obj in boxes:
+                            object = Object()
+                            object.xywh = obj.xywh.tolist()[0]
+                            object.obj_class = str(self.yolo.names[int(obj.cls)])
+                            objects.append(object)
+
+                        objects.sort(key=lambda x: x.xywh[0], reverse=False)
+
+                        for obj in objects:
+
+                            same_object_counter = 0
+
+                            arr = obj.xywh
                             aux = CoordBoxes()
-                            obj_class = self.yolo.names[int(c)]
-                            aux.type.data = self.yolo.names[int(c)]
-                            aux.image_x.data = int(arr[0].item())
-                            aux.image_y.data = int(arr[1].item())
-                            aux.image_width.data = int(arr[2].item()) 
-                            aux.image_height.data = int(arr[3].item())
+                            aux.type.data = obj.obj_class
+                            aux.image_x.data = int(arr[0])
+                            aux.image_y.data = int(arr[1])
+                            aux.image_width.data = int(arr[2])
+                            aux.image_height.data = int(arr[3])
+
+                            for previous in objects[0:objects.index(obj)]:
+                                if previous.obj_class == obj.obj_class:
+                                    same_object_counter += 1
 
                             #Publish tf
                             publish_tf = False
@@ -114,25 +136,33 @@ class Detector:
                                 # this function gives us a generator of points.
                                 # we ask for a single point in the center of our object.
                                 
-                                x_center = int(boxes[i].xywh[0][0])
-                                y_center = int(boxes[i].xywh[0][1])
-                                width = int(boxes[i].xywh[0][2])
-                                height = int(boxes[i].xywh[0][3])
+                                x_center = int(obj.xywh[0])
+                                y_center = int(obj.xywh[1])
+                                width = int(obj.xywh[2])
+                                height = int(obj.xywh[3])
                                 
                                 # print(x_center, y_center)
 
                                 # print(self._current_pc)
+                                points = [(x_center, y_center + 40)]
 
-                                points=[(x_center, y_center + 25), (x_center - 10, y_center + 25), (x_center + 10, y_center + 25)]
+                                for x in range((x_center - int(width/2)), (x_center + int(width/2) + 1), 15):
+                                    for y in range((y_center - int(height/2)), (y_center + int(height/2) + 1), 15):
+                                        points.append(tuple([x, y]))
 
-                                pc_list = list(
-                                    pc2.read_points(self._current_pc,
-                                                skip_nans=True,
-                                                field_names=('x', 'y', 'z'),
-                                                uvs=points))
+                                try:
+                                    pc_list = list(
+                                        pc2.read_points(self._current_pc,
+                                                    skip_nans=True,
+                                                    field_names=('x', 'y', 'z'),
+                                                    uvs=points))
+                                except:
+                                    pc_list = []
                                 # pc_list_sum = np.sum(pc_list,axis=0)
 
-                            
+                                # if obj_class == 'English_Sauce':
+                                #     for k in pc_list:
+                                #         print(k[2])
                                 
                                 if len(pc_list) > 0:
                                     first = pc_list[0]
@@ -140,21 +170,27 @@ class Detector:
                                         if item[2] < first[2]:
                                             first = item
 
-                                    pc_list_sum = np.sum(pc_list, axis=0)
+                                    suitable_x = []
+                                    suitable_y = []
 
-                                    pc_list_x = pc_list_sum[0]/len(pc_list)
-                                    pc_list_y = pc_list_sum[1]/len(pc_list)
+                                    for item in pc_list:
+                                        if item[2] <= first[2] + 0.1:
+                                            suitable_x.append(item[0])
+                                            suitable_y.append(item[1])
+
+                                    pc_list_x = (min(suitable_x) + max(suitable_x))/2
+                                    pc_list_y = (min(suitable_y) + max(suitable_y))/2
                                     pc_list_z = first[2]
                                     publish_point = [pc_list_x, pc_list_y, pc_list_z]
 
                                     publish_tf = True
                                     # this is the location of our object in space
-                                    tf_id = obj_class + '_' + str(c)
                                     # point_z, point_x, point_y = (pc_list_sum[0]/len(pc_list)), (pc_list_sum[1]/len(pc_list)), (pc_list_sum[2]/len(pc_list))
                                     point_z, point_x, point_y = publish_point
                                 # if the user passes a tf prefix, we append it to the object tf name here
                                 if self._tf_prefix is not None:
-                                    tf_id = self._tf_prefix + '/' + str(self.yolo.names[int(c)]) + str(i)
+                                    
+                                    tf_id = self._tf_prefix + '/' + str(obj.obj_class) + str(same_object_counter)
                                     aux.tf_id.data = tf_id
 
                             # print(aux)
@@ -182,7 +218,7 @@ class Detector:
                                         pass
 
                         #Plot bbox 
-                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.8)
+                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
                         
                         #Publisher
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))

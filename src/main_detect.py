@@ -13,12 +13,14 @@ from ultralytics import YOLO
 import torch
 from sensor_msgs import point_cloud2 as pc2
 from sensor_msgs.msg import Image, PointCloud2
-
+from PIL import Image as img
 from detector_2d.msg import DicBoxes, CoordBoxes
 from detector_2d.srv import Log
 import processing as pr
 import time
 import traceback
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 class Object:
 
@@ -83,17 +85,25 @@ class Detector:
 
     def log(self, req):
         if self._current_image is not None:
-            try:
                 rospy.loginfo('Writing log')
                 small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
                 results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
                 small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
                 cv2.imwrite(self.path_to_package+"/src/log.jpg", small_frame)
                 rospy.loginfo('Log written on '+self.path_to_package+'/src/log.jpg')
+
+                # pdf
+                canv = canvas.Canvas(self.path_to_package+"/src/log.pdf", pagesize=letter)
+                objects_image = img.fromarray(np.uint8(small_frame)).convert('RGB')
+                canv.drawInlineImage(image=objects_image, x=700, y=0)
+
+                canv.save()
+
                 return True
-            except:
-                rospy.loginfo('Could not write Log')
-                return False
+            # except Exception as e:
+            #     print(e)
+            #     rospy.loginfo('Could not write Log')
+            #     return False
         else:
             rospy.loginfo('No image to write log')
             return False

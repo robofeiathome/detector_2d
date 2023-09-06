@@ -111,7 +111,7 @@ class Detector:
     def run(self):
         # run while ROS runs
 
-        frame_rate = 10
+        frame_rate = 5
         prev = 0
         while not rospy.is_shutdown():
             time_elapsed = time.time() - prev

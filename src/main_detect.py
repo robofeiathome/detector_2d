@@ -13,11 +13,14 @@ from ultralytics import YOLO
 import torch
 from sensor_msgs import point_cloud2 as pc2
 from sensor_msgs.msg import Image, PointCloud2
-
+from PIL import Image as img
 from detector_2d.msg import DicBoxes, CoordBoxes
+from detector_2d.srv import Log
 import processing as pr
 import time
 import traceback
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
 class Object:
 
@@ -28,7 +31,6 @@ class Object:
 class Detector:
 
     def __init__(self):
-        self._global_frame = 'camera_rgb_frame'
 
         image_topic = rospy.get_param('~image_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
@@ -66,6 +68,9 @@ class Detector:
             'No point cloud information available. Objects will not be placed in the scene.')
 
         self._tfpub = tf.TransformBroadcaster()
+
+        rospy.Service('detector_log', Log, self.log)
+
         rospy.loginfo('Ready to detect!')
 
     def image_callback(self, image):
@@ -78,10 +83,35 @@ class Detector:
         # Store value on a private attribute
         self._current_pc = pc
 
+    def log(self, req):
+        if self._current_image is not None:
+                rospy.loginfo('Writing log')
+                small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
+                results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
+                small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
+                cv2.imwrite(self.path_to_package+"/src/log.jpg", small_frame)
+                rospy.loginfo('Log written on '+self.path_to_package+'/src/log.jpg')
+
+                # pdf
+                canv = canvas.Canvas(self.path_to_package+"/src/log.pdf", pagesize=letter)
+                objects_image = img.fromarray(np.uint8(small_frame)).convert('RGB')
+                canv.drawInlineImage(image=objects_image, x=700, y=0)
+
+                canv.save()
+
+                return True
+            # except Exception as e:
+            #     print(e)
+            #     rospy.loginfo('Could not write Log')
+            #     return False
+        else:
+            rospy.loginfo('No image to write log')
+            return False
+
     def run(self):
         # run while ROS runs
 
-        frame_rate = 10
+        frame_rate = 5
         prev = 0
         while not rospy.is_shutdown():
             time_elapsed = time.time() - prev
@@ -129,7 +159,8 @@ class Detector:
                             #Publish tf
                             publish_tf = False
                             if self._current_pc is None:
-                                rospy.loginfo('No point cloud')
+                                # rospy.loginfo('No point cloud')
+                                pass
                             else:
                                 # y_center = round(arr[1].item() - ((arr[1].item() - arr[3].item()) / 2))
                                 # x_center = round(arr[0].item() - ((arr[0].item() - arr[2].item()) / 2))
@@ -201,7 +232,6 @@ class Detector:
                                 # passed as (z,-x,-y)
                                 object_tf = [point_y, -point_z + 0.0, -point_x]
                                 # print(object_tf)
-                                frame = '/camera_rgb_frame'
 
                                 # translate the tf in regard to the fixed frame
                                 if self._global_frame is not None:

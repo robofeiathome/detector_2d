@@ -32,6 +32,7 @@ class Detector:
 
     def __init__(self):
 
+        model_name = rospy.get_param('~model_name')
         image_topic = rospy.get_param('~image_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
 
@@ -41,7 +42,7 @@ class Detector:
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
 
-        self.yolo = YOLO(self.path_to_package+"/models/best.pt")
+        self.yolo = YOLO(self.path_to_package+(f"/models/{model_name}.pt"))
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None

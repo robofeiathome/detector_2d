@@ -4,7 +4,7 @@
 import rospy
 import numpy as np
 import rospkg
-
+import datetime
 import tf
 import cv2
 from cv_bridge import CvBridge, CvBridgeError
@@ -86,17 +86,18 @@ class Detector:
 
     def log(self, req):
         if self._current_image is not None:
+                ct = datetime.datetime.now()
                 rospy.loginfo('Writing log')
                 small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
                 results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
                 small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
-                cv2.imwrite(self.path_to_package+"/src/log.jpg", small_frame)
-                rospy.loginfo('Log written on '+self.path_to_package+'/src/log.jpg')
+                cv2.imwrite(f'{self.path_to_package}/src/log {ct}.jpg', small_frame)
+                rospy.loginfo('Log written on '+self.path_to_package)
 
                 # pdf
-                canv = canvas.Canvas(self.path_to_package+"/src/log.pdf", pagesize=letter)
+                canv = canvas.Canvas(f'{self.path_to_package}/src/log {ct}.pdf', pagesize=letter)
                 objects_image = img.fromarray(np.uint8(small_frame)).convert('RGB')
-                canv.drawInlineImage(image=objects_image, x=700, y=0)
+                canv.drawInlineImage(image=objects_image, x=0, y=0)
 
                 canv.save()
 

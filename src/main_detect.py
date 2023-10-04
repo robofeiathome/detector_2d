@@ -116,7 +116,7 @@ class Detector:
         dist = 0.8
         trans[0] = trans[0] + dist*np.cos(theta[2]) + 0.05
         trans[1] = trans[1] + dist*np.sin(theta[2])
-        trans[2] = trans[2] + 1.4
+        trans[2] = trans[2] + 0.95
         self._tfpub.sendTransform((trans), tf.transformations.quaternion_from_euler(0, 0, 0), rospy.Time.now(), "bookcase_tall", "map")
 
 

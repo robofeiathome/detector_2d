@@ -110,6 +110,16 @@ class Detector:
             rospy.loginfo('No image to write log')
             return False
 
+    def publish_bookcase_tall(self):
+        trans, a = self._tf_listener.lookupTransform('map', 'bookcase', rospy.Time(0))
+        theta = tf.transformations.euler_from_quaternion(a)
+        dist = 0.8
+        trans[0] = trans[0] + dist*np.cos(theta[2]) + 0.05
+        trans[1] = trans[1] + dist*np.sin(theta[2])
+        trans[2] = trans[2] + 1.4
+        self._tfpub.sendTransform((trans), tf.transformations.quaternion_from_euler(0, 0, 0), rospy.Time.now(), "bookcase_tall", "map")
+
+
     def run(self):
         # run while ROS runs
 
@@ -256,6 +266,8 @@ class Detector:
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
 
                         self._boxespub.publish(detected_object)
+
+                        self.publish_bookcase_tall()
                         
 
                     except Exception:

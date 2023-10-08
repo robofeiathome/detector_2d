@@ -113,10 +113,10 @@ class Detector:
     def publish_bookcase_tall(self):
         trans, a = self._tf_listener.lookupTransform('map', 'bookcase', rospy.Time(0))
         theta = tf.transformations.euler_from_quaternion(a)
-        dist = 0.7
+        dist = 0.55
         trans[0] = trans[0] + dist*np.cos(theta[2]) + 0.05
         trans[1] = trans[1] + dist*np.sin(theta[2])
-        trans[2] = trans[2] + 0.95
+        trans[2] = trans[2] + 0.92
         self._tfpub.sendTransform((trans), tf.transformations.quaternion_from_euler(0, 0, 0), rospy.Time.now(), "bookcase_tall", "map")
 
 

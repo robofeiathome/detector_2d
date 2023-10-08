@@ -47,6 +47,7 @@ class Detector:
         self._tf_listener = tf.TransformListener()
         self._current_image = None
         self._current_pc = None
+        self._det_image = None
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -60,6 +61,7 @@ class Detector:
 
         # publisher for frames with detected objects
         self._imagepub = rospy.Publisher('~objects_label', Image, queue_size=10)
+        self._detectsub = rospy.Subscriber("/detector_2d/objects_label", Image, self.pc_callback)
         self._boxespub = rospy.Publisher('~boxes_coordinates', DicBoxes, queue_size=10)
         
         if point_cloud_topic is not None:
@@ -84,30 +86,35 @@ class Detector:
         # Store value on a private attribute
         self._current_pc = pc
 
+    def detect_callback(self, det):
+        self._det_image = det
+
     def log(self, req):
-        if self._current_image is not None:
-                ct = datetime.datetime.now()
-                rospy.loginfo('Writing log')
-                small_frame = self._bridge.imgmsg_to_cv2(self._current_image, desired_encoding='bgr8')
-                results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
-                small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
-                cv2.imwrite(f'{self.path_to_package}/src/log {ct}.jpg', small_frame)
-                rospy.loginfo('Log written on '+self.path_to_package)
+        try:
+            if self._current_image is not None:
+                    ct = datetime.datetime.now()
+                    rospy.loginfo('Writing log')
+                    small_frame = self._bridge.imgmsg_to_cv2(self._det_image, desired_encoding='bgr8')
+                    small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+                    cv2.imwrite(f'{self.path_to_package}/src/log {ct}.jpg', small_frame)
+                    rospy.loginfo('Log written on '+self.path_to_package)
 
-                # pdf
-                canv = canvas.Canvas(f'{self.path_to_package}/src/log {ct}.pdf', pagesize=letter)
-                objects_image = img.fromarray(np.uint8(small_frame)).convert('RGB')
-                canv.drawInlineImage(image=objects_image, x=0, y=0)
+                    # pdf
+                    canv = canvas.Canvas(f'{self.path_to_package}/src/log {ct}.pdf', pagesize=letter)
+                    objects_image = img.fromarray(np.uint8(small_frame)).convert('RGB')
+                    canv.drawInlineImage(image=objects_image, x=0, y=0)
 
-                canv.save()
+                    canv.save()
 
-                return True
-            # except Exception as e:
-            #     print(e)
-            #     rospy.loginfo('Could not write Log')
-            #     return False
-        else:
-            rospy.loginfo('No image to write log')
+                    return True
+                # except Exception as e:
+                #     print(e)
+                #     rospy.loginfo('Could not write Log')
+                #     return False
+            else:
+                rospy.loginfo('No image to write log')
+                return False
+        except:
             return False
 
     def publish_bookcase_tall(self):

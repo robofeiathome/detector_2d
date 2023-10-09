@@ -61,7 +61,7 @@ class Detector:
 
         # publisher for frames with detected objects
         self._imagepub = rospy.Publisher('~objects_label', Image, queue_size=10)
-        self._detectsub = rospy.Subscriber("/detector_2d/objects_label", Image, self.pc_callback)
+        self._detectsub = rospy.Subscriber("/detector_2d_node/objects_label", Image, self.detect_callback)
         self._boxespub = rospy.Publisher('~boxes_coordinates', DicBoxes, queue_size=10)
         
         if point_cloud_topic is not None:
@@ -114,7 +114,8 @@ class Detector:
             else:
                 rospy.loginfo('No image to write log')
                 return False
-        except:
+        except Exception as e:
+            print(e)
             return False
 
     def publish_bookcase_tall(self):

@@ -21,6 +21,7 @@ import time
 import traceback
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
+from hera_objects.srv import FindObject, FindSpecificObject
 
 class Object:
 
@@ -32,6 +33,7 @@ class Detector:
 
     def __init__(self):
 
+        self.objects = rospy.ServiceProxy('/objects', FindObject)
         model_name = rospy.get_param('~model_name')
         image_topic = rospy.get_param('~image_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
@@ -99,10 +101,17 @@ class Detector:
                     cv2.imwrite(f'{self.path_to_package}/src/log {ct}.jpg', small_frame)
                     rospy.loginfo('Log written on '+self.path_to_package)
 
+                    resp = self.objects("all", "", 0, 0, [])
+                    taken_object = resp.taken_object
+
                     # pdf
                     canv = canvas.Canvas(f'{self.path_to_package}/src/log {ct}.pdf', pagesize=letter)
                     objects_image = img.fromarray(np.uint8(small_frame)).convert('RGB')
                     canv.drawInlineImage(image=objects_image, x=0, y=0)
+                    sx = 700
+                    for obj in taken_object:
+                        canv.drawString(100,sx,str(obj))
+                        sx -= 10
 
                     canv.save()
 

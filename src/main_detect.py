@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -- coding: utf-8 --
 
+import os
 import rospy
 import numpy as np
 import rospkg
@@ -22,9 +23,18 @@ import traceback
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from hera_objects.srv import FindObject, FindSpecificObject
+import detectron2
+from detectron2.utils.logger import setup_logger
+setup_logger()
+from detectron2 import model_zoo
+from detectron2.engine import DefaultPredictor
+from detectron2.config import get_cfg
+from detectron2.utils.visualizer import Visualizer
+from detectron2.data import MetadataCatalog
+from detectron2.data.datasets import register_coco_instances
+
 
 class Object:
-
     def __init__(self):
         self.xywh = None
         self.obj_class = None
@@ -34,8 +44,8 @@ class Detector:
     def __init__(self):
 
         self.objects = rospy.ServiceProxy('/objects', FindObject)
-        model_name = rospy.get_param('~model_name')
-        image_topic = rospy.get_param('~image_topic')
+        #model_name = rospy.get_param('~model_name')
+        image_topic =  rospy.get_param('~image_topic', '/usb_cam/image_raw')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
 
         rospack = rospkg.RosPack()
@@ -44,7 +54,7 @@ class Detector:
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
 
-        self.yolo = YOLO(model_name)
+        #self.yolo = YOLO(model_name)
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None
@@ -56,10 +66,8 @@ class Detector:
         # create detector
         self._bridge = CvBridge()
 
-        # image and point cloud subscribers
-        # and variables that will hold their values
+        # image and point cloud subscribers and variables that will hold their values
         self._image_sub = rospy.Subscriber(image_topic, Image, self.image_callback)
-
 
         # publisher for frames with detected objects
         self._imagepub = rospy.Publisher('~objects_label', Image, queue_size=10)
@@ -74,6 +82,34 @@ class Detector:
 
         self._tfpub = tf.TransformBroadcaster()
 
+        train_data_path = "/home/robofei/Downloads/Hera Objects.v5i.coco/train/"
+        train_annotation_path = "/home/robofei/Downloads/Hera Objects.v5i.coco/train/_annotations.coco.json"
+        test_data_path = "/home/robofei/Downloads/Hera Objects.v5i.coco/valid/"
+        test_annotation_path = "/home/robofei/Downloads/Hera Objects.v5i.coco/valid/_annotations.coco.json"
+
+        # Registro dos datasets
+        register_coco_instances("YourTrainDatasetName", {}, train_annotation_path, train_data_path)
+        register_coco_instances("YourTestDatasetName", {}, test_annotation_path, test_data_path)
+
+        self.cfg = get_cfg()
+        self.cfg.merge_from_file(model_zoo.get_config_file("COCO-Detection/faster_rcnn_X_101_32x8d_FPN_3x.yaml"))
+        self.cfg.DATASETS.TRAIN = ("YourTrainDatasetName",)
+        self.cfg.DATASETS.TEST = ("YourTestDatasetName",)
+        self.cfg.DATALOADER.NUM_WORKERS = 4
+        self.cfg.SOLVER.IMS_PER_BATCH = 1
+        self.cfg.SOLVER.BASE_LR = 0.001
+        self.cfg.SOLVER.WARMUP_ITERS = 1000
+        self.cfg.SOLVER.MAX_ITER = 1400
+        self.cfg.SOLVER.STEPS = (1500, 2000)
+        self.cfg.SOLVER.GAMMA = 0.05
+        self.cfg.MODEL.ROI_HEADS.BATCH_SIZE_PER_IMAGE = 16
+        self.cfg.MODEL.ROI_HEADS.NUM_CLASSES = 8
+        self.cfg.TEST.EVAL_PERIOD = 500
+        self.cfg.MODEL.ROI_HEADS.SCORE_THRESH_TEST = 0.8  # Limite de confiança para inferência
+        self.cfg.OUTPUT_DIR = './src/vision_system/hera_detection/output/'
+        self.cfg.MODEL.WEIGHTS = os.path.join(self.cfg.OUTPUT_DIR, "model_final.pth")  # Caminho para os pesos do modelo treinado
+        self.predictor = DefaultPredictor(self.cfg)
+        
         rospy.Service('detector_log', Log, self.log)
 
         rospy.loginfo('Ready to detect!')
@@ -155,19 +191,20 @@ class Detector:
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
-                        
+                        outputs = self.predictor(small_frame)
+
                         #Boxes to msg
-                        boxes = results[0].boxes
+                        boxes = outputs["instances"].pred_boxes
                         objects = []
 
-                        for obj in boxes:
+                        for i, obj in enumerate(boxes):
                             object = Object()
-                            object.xywh = obj.xywh.tolist()[0]
-                            object.obj_class = str(self.yolo.names[int(obj.cls)])
+                            object.xywh = [obj[0], obj[1], obj[2], obj[3]]
+                            object.obj_class = outputs["instances"].pred_classes[i]
+                            print(outputs["instances"].pred_classes)
                             objects.append(object)
 
-                        objects.sort(key=lambda x: x.xywh[0], reverse=False)
+                        #objects.sort(key=lambda x: x.xywh[0], reverse=False)
 
                         for obj in objects:
 
@@ -276,11 +313,12 @@ class Detector:
                                     except:
                                         pass
 
-                        #Plot bbox 
-                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
-                        
+                        #Plot bbox
+                        v = Visualizer(small_frame[:, :, ::-1], MetadataCatalog.get(self.cfg.DATASETS.TRAIN[0]), scale=1.2)
+                        v = v.draw_instance_predictions(outputs["instances"].to("cpu"))
+                        bgr_image = v.get_image()
                         #Publisher
-                        self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
+                        self._imagepub.publish(self._bridge.cv2_to_imgmsg(bgr_image, 'rgb8'))
 
                         self._boxespub.publish(detected_object)
 

@@ -1,0 +1,2 @@
+BoundingBox bbox
+int32 class_id

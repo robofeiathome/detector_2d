@@ -10,7 +10,7 @@ import cv2
 class Predict:
     def __init__(self):
         self.bridge_object = CvBridge()
-        self.topic = rospy.get_param('~camera_topic')
+        self.topic = rospy.get_param('~image_topic')
         self.yolo = YOLO('yolov8m.pt')
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
         self.service = rospy.Service('predictor', Predictor, self.handler)
@@ -31,28 +31,27 @@ class Predict:
             return False
 
         result = self.yolo.predict(source=cv_image, conf=threshold, classes=classes)
-        result = result[0].boxes
+        result = result[0].boxes.data
         
-        if result:
-            response = DetectionArray()
-            response.detections = []
+        response = DetectionArray()
+        response.detections = []
 
-            for i, box in enumerate(result):
-                det = box.xyxy[0]
-                bbox_msg = BoundingBox()
-                bbox_msg.x_min = det[0]
-                bbox_msg.y_min = det[1]
-                bbox_msg.x_max = det[2]
-                bbox_msg.y_max = det[3]
+        for i, box in enumerate(result):
+            print(box)
+            #det = box.xyxy[0]
+            bbox_msg = BoundingBox()
+            bbox_msg.x_min = box[0].item()
+            bbox_msg.y_min = box[1].item()
+            bbox_msg.x_max = box[2].item()
+            bbox_msg.y_max = box[3].item()
 
-                detection_msg = Detection()
-                detection_msg.bbox = bbox_msg
-                detection_msg.class_id = int(result.cls[i])
+            detection_msg = Detection()
+            detection_msg.bbox = bbox_msg
+            detection_msg.class_id = result[i][5]
 
-                response.detections.append(detection_msg)
-            self.save_image(cv_image, 'test.jpg')
-            return response
-        return False
+            response.detections.append(detection_msg)
+        #self.save_image(cv_image, 'test.jpg')
+        return response
 
     def handler(self, request):
         if self.cam_image is None:

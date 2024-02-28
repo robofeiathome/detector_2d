@@ -47,7 +47,7 @@ class Predict:
 
             detection_msg = Detection()
             detection_msg.bbox = bbox_msg
-            detection_msg.class_id = result[i][5]
+            detection_msg.class_id = self.yolo.names[result[i][5].item()]
 
             response.detections.append(detection_msg)
         #self.save_image(cv_image, 'test.jpg')

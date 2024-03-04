@@ -58,7 +58,10 @@ class Predict:
             rospy.logwarn("No image available from camera.")
             return False
 
-        result = self.predict(self.cam_image, request.threshold, request.classes)
+        result = self.predict(self.cam_image,
+                              request.threshold, 
+                              request.classes if len(request.classes) > 0 else None
+                             )
         return result
 
 if __name__ == '__main__':

@@ -35,7 +35,7 @@ class Detector:
 
         self.objects = rospy.ServiceProxy('/objects', FindObject)
         model_name = rospy.get_param('~model_name')
-        image_topic = rospy.get_param('~image_topic')
+        image_topic = rospy.get_param('~camera_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
 
         rospack = rospkg.RosPack()

@@ -10,7 +10,7 @@ import cv2
 class Predict:
     def __init__(self):
         self.bridge_object = CvBridge()
-        self.topic = rospy.get_param('~image_topic')
+        self.topic = rospy.get_param('~camera_topic')
         self.yolo = YOLO('yolov8m.pt')
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
         self.service = rospy.Service('predictor', Predictor, self.handler)

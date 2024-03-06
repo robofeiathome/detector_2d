@@ -4,4 +4,4 @@ sift_min_pts: 5
 # the frame or tf that all object tfs will be published in relation to, leave blank to publish wrt. camera_link
 global_frame: camera_rgb_frame
 
-image_topic: /usb_cam/image_raw
+camera_topic: /camera/color/image_raw

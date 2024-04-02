@@ -44,7 +44,7 @@ class Detector:
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
 
-        self.yolo = YOLO(model_name)
+        self.yolo = YOLO(f'{self.path_to_package}/models/{model_name}')
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None

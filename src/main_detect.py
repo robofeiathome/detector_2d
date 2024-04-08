@@ -11,9 +11,11 @@ from cv_bridge import CvBridge, CvBridgeError
 from sensor_msgs.msg import Image
 from ultralytics import YOLO
 import torch
+import requests
 from sensor_msgs import point_cloud2 as pc2
 from sensor_msgs.msg import Image, PointCloud2
 from PIL import Image as img
+import base64
 from detector_2d.msg import DicBoxes, CoordBoxes
 from detector_2d.srv import Log
 import processing as pr
@@ -45,7 +47,7 @@ class Detector:
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
 
-        self.yolo = self.setup_model()
+        #self.yolo = self.setup_model()
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None
@@ -127,6 +129,25 @@ class Detector:
         except Exception as e:
             print(e)
             return False
+    
+    def encode_image_to_base64(self, image):
+        # Converte a imagem para o formato JPG (pode ajustar conforme necessário)
+        _, buffer = cv2.imencode('.jpg', image)
+        # Codifica o buffer em Base64
+        encoded_image = base64.b64encode(buffer).decode('utf-8')
+        
+        return encoded_image
+
+    def request_inference(self, image):
+        base64_image = self.encode_image_to_base64(image)
+        url = "https://outline.roboflow.com/robo-segmentation/1"
+        body = {
+            "image": image,
+            "api_key": "G6flYzPm3kYCkkMLe1HY"
+        }
+
+        response = requests.post(url, json=body)
+        return response.json()
 
     def publish_bookcase_tall(self):
         trans, a = self._tf_listener.lookupTransform('map', 'bookcase', rospy.Time(0))
@@ -137,12 +158,11 @@ class Detector:
         trans[2] = trans[2] + 0.92
         self._tfpub.sendTransform((trans), tf.transformations.quaternion_from_euler(0, 0, 0), rospy.Time.now(), "bookcase_tall", "map")
 
-    def setup_model(self):
+    def setup_model(self, image):
         rf = Roboflow(api_key="G6flYzPm3kYCkkMLe1HY")
         project = rf.workspace("leo-martins-xpvd9").project("robo-segmentation")
         model = project.version(1).model
-        return model
-        model.predict("your_image.jpg", confidence=40, overlap=30).json()
+        return model.predict(image, confidence=40, overlap=30).json()
 
 
     def run(self):
@@ -163,7 +183,7 @@ class Detector:
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.yolo.predict(small_frame, confidence=0.7)
+                        results = self.request_inference(small_frame)
 
                         masks = results.masks if hasattr(results, 'masks') else None
                     

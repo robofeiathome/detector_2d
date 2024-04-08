@@ -22,6 +22,7 @@ import traceback
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from hera_objects.srv import FindObject, FindSpecificObject
+from roboflow import Roboflow
 
 class Object:
 
@@ -44,7 +45,7 @@ class Detector:
         self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
 
-        self.yolo = YOLO(f'{self.path_to_package}/models/{model_name}')
+        self.yolo = self.setup_model()
 
         self._tf_listener = tf.TransformListener()
         self._current_image = None
@@ -136,6 +137,13 @@ class Detector:
         trans[2] = trans[2] + 0.92
         self._tfpub.sendTransform((trans), tf.transformations.quaternion_from_euler(0, 0, 0), rospy.Time.now(), "bookcase_tall", "map")
 
+    def setup_model(self):
+        rf = Roboflow(api_key="G6flYzPm3kYCkkMLe1HY")
+        project = rf.workspace("leo-martins-xpvd9").project("robo-segmentation")
+        model = project.version(1).model
+        return model
+        model.predict("your_image.jpg", confidence=40, overlap=30).json()
+
 
     def run(self):
         # run while ROS runs
@@ -155,7 +163,19 @@ class Detector:
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
+                        results = self.yolo.predict(small_frame, confidence=0.7)
+
+                        masks = results.masks if hasattr(results, 'masks') else None
+                    
+                        # Se houver máscaras, processá-las
+                        if masks is not None:
+                            # Aqui, você precisará adaptar com base no formato exato de suas máscaras
+                            # Isso é apenas um esboço de como você pode começar
+                            overlayed_image = pr.overlay_masks_on_image(small_frame, masks)
+                            
+                            # Converter a imagem processada de volta para um formato ROS e publicar
+                            ros_image = self._bridge.cv2_to_imgmsg(overlayed_image, encoding="bgr8")
+                            self._imagepub.publish(ros_image)
                         
                         #Boxes to msg
                         boxes = results[0].boxes
@@ -277,7 +297,7 @@ class Detector:
                                         pass
 
                         #Plot bbox 
-                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
+                        small_frame = pr.overlay_mask_on_image(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
                         
                         #Publisher
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))

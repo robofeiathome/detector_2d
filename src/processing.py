@@ -1,4 +1,5 @@
 import cv2
+import numpy as np
 
 def box_label(image, box, label='', color=(128, 128, 128), txt_color=(255, 255, 255)):
     lw = max(round(sum(image.shape) / 2 * 0.003), 2)
@@ -47,3 +48,32 @@ def plot_bboxes(image, boxes, labels=[], colors=[], score=True, conf=None):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
     #cv2.imshow(image) #if used in Python
+
+def overlay_mask_on_image(image, mask, colors=None):
+    """
+    Applies a color overlay for the given mask on the original image.
+
+    :param image: The original image (numpy array).
+    :param mask: The segmentation mask (numpy array) with the same width and height as the original image.
+                 Each pixel's value in the mask represents its class ID.
+    :param colors: Optional. A list of colors to use for each class. Colors should be in BGR format.
+                   If not provided, random colors will be generated.
+    :return: The original image with the mask overlay applied.
+    """
+    # Generate random colors for each class if not provided
+    if colors is None:
+        num_classes = mask.max() + 1  # Assuming class IDs are 0-indexed
+        colors = [tuple(np.random.randint(0, 256, 3).tolist()) for _ in range(num_classes)]
+    
+    # Ensure the mask is of integer type
+    mask = mask.astype(np.uint8)
+
+    # Apply colors
+    colored_mask = np.zeros_like(image)
+    for cls_id, color in enumerate(colors):
+        colored_mask[mask == cls_id] = color
+
+    # Combine the original image and the colored mask
+    overlayed_image = cv2.addWeighted(image, 1, colored_mask, 0.5, 0)
+
+    return overlayed_image

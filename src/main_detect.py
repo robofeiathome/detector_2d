@@ -141,12 +141,14 @@ class Detector:
     def request_inference(self, image):
         base64_image = self.encode_image_to_base64(image)
         url = "https://outline.roboflow.com/robo-segmentation/1"
-        body = {
-            "image": image,
-            "api_key": "G6flYzPm3kYCkkMLe1HY"
+        api_key =  "G6flYzPm3kYCkkMLe1HY"
+        headers = {
+            "Content-Type": "application/x-www-form-urlencoded"
         }
 
-        response = requests.post(url, json=body)
+        data = base64_image
+
+        response = requests.post(url, params={"api_key": api_key}, data=data, headers=headers)
         return response.json()
 
     def publish_bookcase_tall(self):
@@ -183,22 +185,14 @@ class Detector:
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.request_inference(small_frame)
 
-                        masks = results.masks if hasattr(results, 'masks') else None
-                    
-                        # Se houver máscaras, processá-las
-                        if masks is not None:
-                            # Aqui, você precisará adaptar com base no formato exato de suas máscaras
-                            # Isso é apenas um esboço de como você pode começar
-                            overlayed_image = pr.overlay_masks_on_image(small_frame, masks)
-                            
-                            # Converter a imagem processada de volta para um formato ROS e publicar
-                            ros_image = self._bridge.cv2_to_imgmsg(overlayed_image, encoding="bgr8")
-                            self._imagepub.publish(ros_image)
-                        
+                        prediction = self.request_inference(small_frame)
+        
+                        polygon = [(point_obj["x"], point_obj["y"]) for point_obj in prediction["predictions"]["points"]]
+
+                        print(polygon)
                         #Boxes to msg
-                        boxes = results[0].boxes
+                        boxes = pr.get_boxes_from_polygon(polygon)  
                         objects = []
 
                         for obj in boxes:

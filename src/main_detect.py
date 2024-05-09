@@ -40,8 +40,8 @@ class Detector:
 
         rospack = rospkg.RosPack()
         self.path_to_package = rospack.get_path('detector_2d')
-
-        self._global_frame = rospy.get_param('~global_frame', None)
+        self._global_frame = "camera_bottom_screw_frame"
+        #self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
 
         self.yolo = YOLO(f'{self.path_to_package}/models/{model_name}')
@@ -140,7 +140,7 @@ class Detector:
     def run(self):
         # run while ROS runs
 
-        frame_rate = 5
+        frame_rate = 10
         prev = 0
         while not rospy.is_shutdown():
             time_elapsed = time.time() - prev

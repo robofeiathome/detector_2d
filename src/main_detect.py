@@ -35,13 +35,14 @@ class Detector:
 
         self.objects = rospy.ServiceProxy('/objects', FindObject)
         model_name = rospy.get_param('~model_name')
+        print("Usando modelo: ", model_name)
         image_topic = rospy.get_param('~camera_topic')
         point_cloud_topic = rospy.get_param('~point_cloud_topic', None)
 
         rospack = rospkg.RosPack()
         self.path_to_package = rospack.get_path('detector_2d')
-        self._global_frame = "camera_bottom_screw_frame"
-        #self._global_frame = rospy.get_param('~global_frame', None)
+        # self._global_frame = "camera_bottom_screw_frame"
+        self._global_frame = rospy.get_param('~global_frame', None)
         self._tf_prefix = rospy.get_param('~tf_prefix', rospy.get_name())
 
         self.yolo = YOLO(f'{self.path_to_package}/models/{model_name}')
@@ -140,7 +141,7 @@ class Detector:
     def run(self):
         # run while ROS runs
 
-        frame_rate = 10
+        frame_rate = 12
         prev = 0
         while not rospy.is_shutdown():
             time_elapsed = time.time() - prev
@@ -155,7 +156,7 @@ class Detector:
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
+                        results = self.yolo.predict(source=small_frame, conf=0.8, device=0, verbose=False)
                         
                         #Boxes to msg
                         boxes = results[0].boxes

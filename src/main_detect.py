@@ -156,7 +156,7 @@ class Detector:
                         detected_object = DicBoxes()
                         
                         #Load model
-                        results = self.yolo.predict(source=small_frame, conf=0.8, device=0, verbose=False)
+                        results = self.yolo.predict(source=small_frame, conf=0.7, device=0, verbose=False)
                         
                         #Boxes to msg
                         boxes = results[0].boxes
@@ -278,7 +278,7 @@ class Detector:
                                         pass
 
                         #Plot bbox 
-                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
+                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.6)
                         
                         #Publisher
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))

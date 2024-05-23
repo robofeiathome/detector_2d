@@ -278,7 +278,7 @@ class Detector:
                                         pass
 
                         #Plot bbox 
-                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.6)
+                        small_frame = pr.plot_bboxes(small_frame, results[0].boxes.data, self.yolo.names, conf=0.7)
                         
                         #Publisher
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))

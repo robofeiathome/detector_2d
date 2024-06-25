@@ -291,6 +291,8 @@ cython_debug/
 .idea/
 __pycache__/
 .DS_Store
+/src/__pycache__/
+.vscode/
 
 *.jpg
 *.pdf

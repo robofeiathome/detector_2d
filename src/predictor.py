@@ -12,8 +12,9 @@ class Predict:
         self.bridge_object = CvBridge()
         self.topic = rospy.get_param('~camera_topic')
         self.yolo = YOLO('yolov8m.pt')
+        self._imagepub = rospy.Publisher('~/predictor/objects_label', Image, queue_size=10)
         self.image_sub = rospy.Subscriber(self.topic, Image, self.camera_callback)
-        self.service = rospy.Service('predictor', Predictor, self.handler)
+        self.service = rospy.Service('~predictor', Predictor, self.handler)
         rospy.loginfo("Finished Predictor Init process, ready to predict")
 
     def camera_callback(self, data):
@@ -51,6 +52,7 @@ class Predict:
 
             response.detections.append(detection_msg)
         #self.save_image(cv_image, 'test.jpg')
+        self._imagepub.publish(self._bridge.cv2_to_imgmsg(cv_image, 'rgb8'))
         return response
 
     def handler(self, request):

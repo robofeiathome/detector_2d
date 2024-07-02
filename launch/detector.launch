@@ -1,9 +1,9 @@
 <?xml version="1.0"?>
 <launch>
-    <arg name="model" default="230524.pt"/>
+    <arg name="model_name" default="sacola.pt"/>
     <node name="detector_2d_node" pkg="detector_2d" type="main_detect.py" output="screen">
         <rosparam command="load" file="$(find detector_2d)/config/main_cfg.yaml"/>
-        <param name="model_name" value="$(arg model)"/>
+        <param name="model_name" value="$(arg model_name)"/>
         <param name="image_topic" value="/camera/rgb/image_raw" />
         <param name="point_cloud_topic" value="/camera/depth_registered/points" />
     </node>

@@ -66,6 +66,9 @@ class Detector:
         self._imagepub = rospy.Publisher('~objects_label', Image, queue_size=10)
         self._detectsub = rospy.Subscriber("/detector_2d_node/objects_label", Image, self.detect_callback)
         self._boxespub = rospy.Publisher('~boxes_coordinates', DicBoxes, queue_size=10)
+
+        rospy.Service('latest_detections', Detector, self.latest_detections)
+        self.latest_detections_array = DicBoxes()
         
         if point_cloud_topic is not None:
             rospy.Subscriber(point_cloud_topic, PointCloud2, self.pc_callback)
@@ -91,6 +94,9 @@ class Detector:
 
     def detect_callback(self, det):
         self._det_image = det
+
+    def latest_detections(self, req):
+        return self.latest_detections_array
 
     def log(self, req):
         try:
@@ -284,6 +290,8 @@ class Detector:
                         self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
 
                         self._boxespub.publish(detected_object)
+
+                        self.latest_detections_array = detected_object
 
                         self.publish_bookcase_tall()
                         

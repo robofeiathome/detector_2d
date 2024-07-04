@@ -15,7 +15,7 @@ from sensor_msgs import point_cloud2 as pc2
 from sensor_msgs.msg import Image, PointCloud2
 from PIL import Image as img
 from detector_2d.msg import DicBoxes, CoordBoxes
-from detector_2d.srv import Log
+from detector_2d.srv import Log, LatestDetector
 import processing as pr
 import time
 import traceback
@@ -67,7 +67,7 @@ class Detector:
         self._detectsub = rospy.Subscriber("/detector_2d_node/objects_label", Image, self.detect_callback)
         self._boxespub = rospy.Publisher('~boxes_coordinates', DicBoxes, queue_size=10)
 
-        rospy.Service('latest_detections', Detector, self.latest_detections)
+        rospy.Service('latest_detections', LatestDetector, self.latest_detections)
         self.latest_detections_array = DicBoxes()
         
         if point_cloud_topic is not None:

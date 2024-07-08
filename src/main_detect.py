@@ -22,6 +22,7 @@ import traceback
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from hera_objects.srv import FindObject, FindSpecificObject
+import os
 
 class Object:
 
@@ -105,8 +106,12 @@ class Detector:
                     rospy.loginfo('Writing log')
                     small_frame = self._bridge.imgmsg_to_cv2(self._det_image, desired_encoding='bgr8')
                     # small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
-                    cv2.imwrite(f'{self.path_to_package}/src/log {ct}.jpg', small_frame)
-                    rospy.loginfo('Log written on '+self.path_to_package)
+
+                    if os.path.exists(self.path_to_package + '/detector_logs') == False:
+                        os.mkdir(self.path_to_package + '/detector_logs')
+
+                    cv2.imwrite(f'{self.path_to_package}/detector_logs/log {ct}.jpg', small_frame)
+                    rospy.loginfo('Log written on '+ self.path_to_package)
 
                     resp = self.objects("all", "", 0, 0)
                     taken_object = resp.taken_object

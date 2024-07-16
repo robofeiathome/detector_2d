@@ -298,7 +298,7 @@ class Detector:
 
                         self.latest_detections_array = detected_object
 
-                        self.publish_bookcase_tall()
+                        # self.publish_bookcase_tall()
                         
 
                     except Exception:

@@ -1,4 +1,0 @@
-float64 threshold
-int64[] classes
---- 
-DetectionArray results

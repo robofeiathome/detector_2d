@@ -16,7 +16,6 @@ from sensor_msgs.msg import Image, PointCloud2
 from PIL import Image as img
 from detector_2d.msg import DicBoxes, CoordBoxes
 from detector_2d.srv import Log, LatestDetector
-import processing as pr
 import time
 import traceback
 from reportlab.pdfgen import canvas
@@ -93,30 +92,30 @@ class Detector:
     def log(self, req):
         try:
             if self._current_image is not None:
-                    ct = datetime.datetime.now()
-                    rospy.loginfo('Writing log')
-                    small_frame = self._bridge.imgmsg_to_cv2(self._det_image, desired_encoding='bgr8')
+                ct = datetime.datetime.now()
+                rospy.loginfo('Writing log')
+                small_frame = self._bridge.imgmsg_to_cv2(self._det_image, desired_encoding='bgr8')
 
-                    if not os.path.exists(self.path_to_package + '/detector_logs'):
-                        os.mkdir(self.path_to_package + '/detector_logs')
+                if not os.path.exists(self.path_to_package + '/detector_logs'):
+                    os.mkdir(self.path_to_package + '/detector_logs')
 
-                    cv2.imwrite(f'{self.path_to_package}/detector_logs/log {ct}.jpg', small_frame)
-                    rospy.loginfo('Log written on ' + self.path_to_package)
+                cv2.imwrite(f'{self.path_to_package}/detector_logs/log {ct}.jpg', small_frame)
+                rospy.loginfo('Log written on ' + self.path_to_package)
 
-                    resp = self.objects("all", "", 0, 0)
-                    taken_object = resp.taken_object
+                resp = self.objects("all", "", 0, 0)
+                taken_object = resp.taken_object
 
-                    canv = canvas.Canvas(f'{self.path_to_package}/src/log {ct}.pdf', pagesize=letter)
-                    objects_image = img.fromarray(np.uint8(small_frame)).convert('RGB')
-                    canv.drawInlineImage(image=objects_image, x=0, y=0)
-                    sx = 700
-                    for obj in taken_object:
-                        canv.drawString(100, sx, str(obj))
-                        sx -= 10
+                canv = canvas.Canvas(f'{self.path_to_package}/src/log {ct}.pdf', pagesize=letter)
+                objects_image = img.fromarray(np.uint8(small_frame)).convert('RGB')
+                canv.drawInlineImage(image=objects_image, x=0, y=0)
+                sx = 700
+                for obj in taken_object:
+                    canv.drawString(100, sx, str(obj))
+                    sx -= 10
 
-                    canv.save()
+                canv.save()
 
-                    return True
+                return True
             else:
                 rospy.loginfo('No image to write log')
                 return False
@@ -147,13 +146,18 @@ class Detector:
                         detected_object = DicBoxes()
 
                         results = self.yolo.predict(source=small_frame, conf=0.6, device=0, verbose=False)
-                        
-                        masks = results[0].masks.data if results[0].masks is not None else []
+
+                        # Plot results using the plot method from YOLO and get the annotated image
+                        for r in results:
+                            annotated_image = r.plot(conf=True, line_width=2, font_size=1.0, font='Arial.ttf', pil=False, img=small_frame, im_gpu=None,
+                                                     kpt_radius=5, kpt_line=True, labels=True, boxes=True, masks=True, probs=True, show=False, save=False)
+
+                        masks = results[0].masks.data.cpu().numpy() if results[0].masks is not None else []
                         objects = []
 
-                        for obj in results[0].boxes:
+                        for i, obj in enumerate(results[0].boxes):
                             object = Object()
-                            object.mask = masks[obj.idx] if obj.idx < len(masks) else None
+                            object.mask = masks[i] if i < len(masks) else None
                             object.obj_class = str(self.yolo.names[int(obj.cls)])
                             objects.append(object)
 
@@ -178,9 +182,9 @@ class Detector:
                             if self._current_pc is not None:
                                 points = [(int(aux.image_x.data), int(aux.image_y.data) + 40)]
                                 for x in range((int(aux.image_x.data) - int(aux.image_width.data / 2)),
-                                               (int(aux.image_x.data) + int(aux.image_width.data / 2) + 1), 15):
+                                            (int(aux.image_x.data) + int(aux.image_width.data / 2) + 1), 15):
                                     for y in range((int(aux.image_y.data) - int(aux.image_height.data / 2)),
-                                                   (int(aux.image_y.data) + int(aux.image_height.data / 2) + 1), 15):
+                                                (int(aux.image_y.data) + int(aux.image_height.data / 2) + 1), 15):
                                         points.append(tuple([x, y]))
 
                                 try:
@@ -220,20 +224,17 @@ class Detector:
                                 if object_tf and all(-float('inf') < v < float('inf') for v in object_tf):
                                     try:
                                         self._tfpub.sendTransform((object_tf),
-                                                                  tf.transformations.quaternion_from_euler(0, 0, 0),
-                                                                  rospy.Time.now(),
-                                                                  tf_id,
-                                                                  frame)
+                                                                tf.transformations.quaternion_from_euler(0, 0, 0),
+                                                                rospy.Time.now(),
+                                                                tf_id,
+                                                                frame)
                                     except:
                                         pass
 
-                        if results[0].masks is not None:
-                            small_frame = pr.plot_masks(small_frame, results[0].masks.data, self.yolo.names, conf=0.6)
-
-                        self._imagepub.publish(self._bridge.cv2_to_imgmsg(small_frame, 'rgb8'))
+                        self._imagepub.publish(self._bridge.cv2_to_imgmsg(annotated_image, 'rgb8'))
                         self._boxespub.publish(detected_object)
                         self.latest_detections_array = detected_object
-                        self.publish_bookcase_tall()
+                        # self.publish_bookcase_tall()
 
                     except Exception:
                         traceback.print_exc()
